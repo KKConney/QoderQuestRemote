@@ -18,6 +18,20 @@
       :description="emptyDescription"
       :image-size="150"
     />
+    
+    <!-- 分页器 -->
+    <div v-if="total > 0" class="pagination-container">
+      <el-pagination
+        v-model:current-page="currentPageModel"
+        v-model:page-size="pageSizeModel"
+        :page-sizes="[5, 10, 20, 50]"
+        :total="total"
+        layout="total, sizes, prev, pager, next, jumper"
+        background
+        @current-change="handlePageChange"
+        @size-change="handleSizeChange"
+      />
+    </div>
   </div>
 </template>
 
@@ -42,10 +56,32 @@ export default {
     searchKeyword: {
       type: String,
       default: ''
+    },
+    currentPage: {
+      type: Number,
+      default: 1
+    },
+    pageSize: {
+      type: Number,
+      default: 10
+    },
+    total: {
+      type: Number,
+      default: 0
     }
   },
-  emits: ['toggle', 'edit', 'delete'],
+  emits: ['toggle', 'edit', 'delete', 'page-change', 'size-change'],
   setup(props, { emit }) {
+    const currentPageModel = computed({
+      get: () => props.currentPage,
+      set: (val) => emit('page-change', val)
+    })
+    
+    const pageSizeModel = computed({
+      get: () => props.pageSize,
+      set: (val) => emit('size-change', val)
+    })
+    
     const emptyDescription = computed(() => {
       if (props.searchKeyword) {
         return '未找到相关任务'
@@ -70,12 +106,24 @@ export default {
     const handleDelete = (taskId) => {
       emit('delete', taskId)
     }
+    
+    const handlePageChange = (page) => {
+      emit('page-change', page)
+    }
+    
+    const handleSizeChange = (size) => {
+      emit('size-change', size)
+    }
 
     return {
       emptyDescription,
+      currentPageModel,
+      pageSizeModel,
       handleToggle,
       handleEdit,
-      handleDelete
+      handleDelete,
+      handlePageChange,
+      handleSizeChange
     }
   }
 }
@@ -91,8 +139,7 @@ export default {
 }
 
 .tasks-container {
-  max-height: 600px;
-  overflow-y: auto;
+  min-height: 400px;
 }
 
 /* 滚动条样式 */
@@ -112,5 +159,12 @@ export default {
 
 .tasks-container::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
+}
+
+/* 分页器样式 */
+.pagination-container {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
 }
 </style>

@@ -13,6 +13,8 @@
 - ✅ 数据本地持久化（LocalStorage）
 - ✅ 响应式界面设计
 - ✅ 现代化视觉风格
+- ✅ **操作加载遮罩**（增删改查时显示加载动画，提升用户体验）
+- ✅ **分页功能**（支持自定义每页显示数量，快速跳转页码）
 
 ## 技术栈
 
@@ -35,6 +37,7 @@
 │   │   ├── TaskItem.vue  # 任务项组件
 │   │   ├── TaskList.vue  # 任务列表组件
 │   │   ├── Footer.vue    # 底部统计组件
+│   │   ├── LoadingMask.vue # 加载遮罩组件
 │   │   └── TodoApp.vue   # 主应用组件
 │   ├── utils/            # 工具函数
 │   │   └── storage.js    # LocalStorage 操作

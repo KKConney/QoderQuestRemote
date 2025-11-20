@@ -22,9 +22,14 @@
         :tasks="filteredTasks"
         :filter-status="filterStatus"
         :search-keyword="searchKeyword"
+        :current-page="currentPage"
+        :page-size="pageSize"
+        :total="filteredTotal"
         @toggle="handleToggleTask"
         @edit="handleEditTask"
         @delete="handleDeleteTask"
+        @page-change="handlePageChange"
+        @size-change="handleSizeChange"
       />
 
       <!-- 底部统计 -->
@@ -41,6 +46,9 @@
       :task="currentTask"
       @submit="handleDialogSubmit"
     />
+
+    <!-- 加载遮罩 -->
+    <LoadingMask :visible="loading" :text="loadingText" />
   </div>
 </template>
 
@@ -52,6 +60,7 @@ import Toolbar from './Toolbar.vue'
 import TaskList from './TaskList.vue'
 import Footer from './Footer.vue'
 import TaskDialog from './TaskDialog.vue'
+import LoadingMask from './LoadingMask.vue'
 import { saveTasks, loadTasks } from '../utils/storage.js'
 
 export default {
@@ -61,7 +70,8 @@ export default {
     Toolbar,
     TaskList,
     Footer,
-    TaskDialog
+    TaskDialog,
+    LoadingMask
   },
   setup() {
     // 状态管理
@@ -71,9 +81,15 @@ export default {
     const searchKeyword = ref('')
     const dialogVisible = ref(false)
     const currentTask = ref(null)
+    const loading = ref(false)
+    const loadingText = ref('处理中...')
+    
+    // 分页相关
+    const currentPage = ref(1)
+    const pageSize = ref(10)
 
-    // 计算属性：过滤后的任务列表
-    const filteredTasks = computed(() => {
+    // 计算属性：过滤后的任务列表（分页前的完整列表）
+    const filteredAllTasks = computed(() => {
       let result = tasks.value
 
       // 按状态过滤
@@ -100,6 +116,16 @@ export default {
 
       return result
     })
+    
+    // 计算属性：当前页的任务列表
+    const filteredTasks = computed(() => {
+      const start = (currentPage.value - 1) * pageSize.value
+      const end = start + pageSize.value
+      return filteredAllTasks.value.slice(start, end)
+    })
+    
+    // 计算属性：过滤后的总数
+    const filteredTotal = computed(() => filteredAllTasks.value.length)
 
     // 计算属性：统计数据
     const totalCount = computed(() => tasks.value.length)
@@ -119,34 +145,50 @@ export default {
 
     // 添加任务
     const addTask = (taskData) => {
-      const newTask = {
-        id: Date.now().toString(),
-        title: taskData.title,
-        description: taskData.description,
-        priority: taskData.priority,
-        completed: false,
-        createdAt: Date.now(),
-        updatedAt: Date.now()
-      }
-      tasks.value.unshift(newTask)
-      saveToStorage()
-      ElMessage.success('任务添加成功')
+      loading.value = true
+      loadingText.value = '正在添加任务...'
+      
+      // 模拟异步操作
+      setTimeout(() => {
+        const newTask = {
+          id: Date.now().toString(),
+          title: taskData.title,
+          description: taskData.description,
+          priority: taskData.priority,
+          completed: false,
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        }
+        tasks.value.unshift(newTask)
+        saveToStorage()
+        loading.value = false
+        ElMessage.success('任务添加成功')
+      }, 300)
     }
 
     // 更新任务
     const updateTask = (taskData) => {
-      const index = tasks.value.findIndex(t => t.id === taskData.id)
-      if (index !== -1) {
-        tasks.value[index] = {
-          ...tasks.value[index],
-          title: taskData.title,
-          description: taskData.description,
-          priority: taskData.priority,
-          updatedAt: Date.now()
+      loading.value = true
+      loadingText.value = '正在更新任务...'
+      
+      // 模拟异步操作
+      setTimeout(() => {
+        const index = tasks.value.findIndex(t => t.id === taskData.id)
+        if (index !== -1) {
+          tasks.value[index] = {
+            ...tasks.value[index],
+            title: taskData.title,
+            description: taskData.description,
+            priority: taskData.priority,
+            updatedAt: Date.now()
+          }
+          saveToStorage()
+          loading.value = false
+          ElMessage.success('任务更新成功')
+        } else {
+          loading.value = false
         }
-        saveToStorage()
-        ElMessage.success('任务更新成功')
-      }
+      }, 300)
     }
 
     // 删除任务
@@ -156,9 +198,16 @@ export default {
         cancelButtonText: '取消',
         type: 'warning'
       }).then(() => {
-        tasks.value = tasks.value.filter(t => t.id !== taskId)
-        saveToStorage()
-        ElMessage.success('任务已删除')
+        loading.value = true
+        loadingText.value = '正在删除任务...'
+        
+        // 模拟异步操作
+        setTimeout(() => {
+          tasks.value = tasks.value.filter(t => t.id !== taskId)
+          saveToStorage()
+          loading.value = false
+          ElMessage.success('任务已删除')
+        }, 300)
       }).catch(() => {
         // 用户取消删除
       })
@@ -166,12 +215,19 @@ export default {
 
     // 切换任务完成状态
     const toggleTaskStatus = (taskId) => {
-      const task = tasks.value.find(t => t.id === taskId)
-      if (task) {
-        task.completed = !task.completed
-        task.updatedAt = Date.now()
-        saveToStorage()
-      }
+      loading.value = true
+      loadingText.value = '正在更新状态...'
+      
+      // 模拟异步操作
+      setTimeout(() => {
+        const task = tasks.value.find(t => t.id === taskId)
+        if (task) {
+          task.completed = !task.completed
+          task.updatedAt = Date.now()
+          saveToStorage()
+        }
+        loading.value = false
+      }, 200)
     }
 
     // 清除所有已完成任务
@@ -187,10 +243,17 @@ export default {
         cancelButtonText: '取消',
         type: 'warning'
       }).then(() => {
-        const count = completedTasks.length
-        tasks.value = tasks.value.filter(t => !t.completed)
-        saveToStorage()
-        ElMessage.success(`已清除 ${count} 个任务`)
+        loading.value = true
+        loadingText.value = '正在清除任务...'
+        
+        // 模拟异步操作
+        setTimeout(() => {
+          const count = completedTasks.length
+          tasks.value = tasks.value.filter(t => !t.completed)
+          saveToStorage()
+          loading.value = false
+          ElMessage.success(`已清除 ${count} 个任务`)
+        }, 300)
       }).catch(() => {
         // 用户取消
       })
@@ -221,14 +284,26 @@ export default {
 
     const handleUpdateFilterStatus = (status) => {
       filterStatus.value = status
+      currentPage.value = 1 // 切换过滤条件时重置到第一页
     }
 
     const handleUpdateFilterPriority = (priority) => {
       filterPriority.value = priority
+      currentPage.value = 1 // 切换过滤条件时重置到第一页
     }
 
     const handleUpdateSearch = (keyword) => {
       searchKeyword.value = keyword
+      currentPage.value = 1 // 搜索时重置到第一页
+    }
+    
+    const handlePageChange = (page) => {
+      currentPage.value = page
+    }
+    
+    const handleSizeChange = (size) => {
+      pageSize.value = size
+      currentPage.value = 1 // 改变每页数量时重置到第一页
     }
 
     const handleDialogSubmit = (taskData) => {
@@ -258,7 +333,12 @@ export default {
       searchKeyword,
       dialogVisible,
       currentTask,
+      loading,
+      loadingText,
+      currentPage,
+      pageSize,
       filteredTasks,
+      filteredTotal,
       totalCount,
       completedCount,
       activeCount,
@@ -270,7 +350,9 @@ export default {
       handleUpdateFilterStatus,
       handleUpdateFilterPriority,
       handleUpdateSearch,
-      handleDialogSubmit
+      handleDialogSubmit,
+      handlePageChange,
+      handleSizeChange
     }
   }
 }
